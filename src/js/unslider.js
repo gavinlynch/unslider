@@ -100,7 +100,10 @@
 			swipe: true,
 			// Swipe threshold -
 			// lower float for enabling short swipe
-			swipeThreshold: 0.2
+			swipeThreshold: 0.2,
+
+			// The number of list items per each slide
+			slidesInViewport: 1
 		};
 
 		//  Set defaults
@@ -132,6 +135,7 @@
 			//  Set up our options inside here so we can re-init at
 			//  any time
 			self.options = $.extend({}, self.defaults, options);
+			self.scale = 100 / self.options.slidesInViewport;
 
 			//  Our elements
 			self.$container = self.$context.find(self.options.selectors.container).addClass(self.prefix + 'wrap');
@@ -199,11 +203,17 @@
 					prop = 'height';
 				}
 
-				self.$container.css(prop, (self.total * 100) + '%').addClass(self.prefix + 'carousel');
+				self.$container.css(prop, (self.total * self.scale) + '%').addClass(self.prefix + 'carousel');
 				self.$slides.css(prop, (100 / self.total) + '%');
 			}
 		};
 
+		// Update the carousel with options
+		self.updateSlidesInViewport = function(slidesInViewport) {
+			self.options.slidesInViewport = slidesInViewport;
+			self.scale = 100 / self.options.slidesInViewport;
+			self.calculateSlides();
+		};
 
 		//  Start our autoplay
 		self.start = function() {
@@ -322,7 +332,7 @@
 					},
 
 					move: function(e) {
-						self.$container.css('left', -(100 * self.current) + (100 * e.distX / width) + '%');
+						self.$container.css('left', -(self.scale * self.current) + (100 * e.distX / width) + '%');
 					},
 
 					moveend: function(e) {
@@ -336,7 +346,7 @@
 						}
 						else {
 
-							self.$container.animate({left: -(100 * self.current) + '%' }, self.options.speed / 2 );
+							self.$container.animate({left: -(self.scale * self.current) + '%' }, self.options.speed / 2 );
 						}
 					}
 				});
@@ -394,6 +404,7 @@
 		};
 
 		self.setIndex = function(to) {
+			to = to * self.options.slidesInViewport;
 			if(to < 0) {
 				to = self.total - 1;
 			}
@@ -404,7 +415,7 @@
 				self.$nav.find('[data-slide="' + self.current + '"]')._active(self.options.activeClass);
 			}
 
-			self.$slides.eq(self.current)._active(self.options.activeClass);
+			self.$slides.filter(':not(".' + self._ + '-clone")').eq(self.current)._active(self.options.activeClass);
 
 			return self;
 		};
@@ -433,7 +444,10 @@
 			self.setIndex(to);
 
 			//  Add a callback method to do stuff with
-			self.$context.trigger(self._ + '.change', [to, self.$slides.eq(to)]);
+      if (!self.isDummySlide(to)) {
+        self.$context.trigger(self._ + '.change',
+            [self.current, self.$slides.filter(':not(".' + self._ + '-clone")').eq(self.current)]);
+      }
 
 			//  Delegate the right method - everything's named consistently
 			//  so we can assume it'll be called "animate" +
@@ -505,6 +519,22 @@
 			return self.slide('top', to);
 		};
 
+    self.isDummySlide = function(to) {
+			//  For infinite sliding we add a dummy slide at the end and start
+			//  of each slider to give the appearance of being infinite
+			if(self.options.infinite) {
+				//  Going backwards to last slide
+				if(to === self.total - 1) {
+          return true;
+				}
+
+				//  Going forwards to first slide
+				if(to === self.total - 2) {
+          return true;
+				}
+			}
+    }
+
 		//  Actually move the slide now
 		//  We have to pass a property to animate as there's
 		//  a few different directions it can now move, but it's
@@ -540,6 +570,9 @@
 				if(typeof dummy === 'number') {
 					self.setIndex(dummy);
 
+          self.$context.trigger(self._ + '.change',
+              [self.dummy, self.$slides.filter(':not(".' + self._ + '-clone")').eq(self.dummy)]);
+
 					//  Listen for when the slide's finished transitioning so
 					//  we can silently move it into the right place and clear
 					//  this whole mess up.
@@ -556,7 +589,7 @@
 			var obj = {};
 
 			//  Manually create it here
-			obj[prop] = -(100 * to) + '%';
+			obj[prop] = -(100 * (to / self.options.slidesInViewport)) + '%';
 
 			//  And animate using our newly-created object
 			return self._move(self.$container, obj);

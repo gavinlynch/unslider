@@ -100,7 +100,10 @@
 			swipe: true,
 			// Swipe threshold -
 			// lower float for enabling short swipe
-			swipeThreshold: 0.2
+			swipeThreshold: 0.2,
+
+			// The number of list items per each slide
+			slidesInViewport: 1
 		};
 
 		//  Set defaults
@@ -132,6 +135,7 @@
 			//  Set up our options inside here so we can re-init at
 			//  any time
 			self.options = $.extend({}, self.defaults, options);
+			self.scale = 100 / self.options.slidesInViewport;
 
 			//  Our elements
 			self.$container = self.$context.find(self.options.selectors.container).addClass(self.prefix + 'wrap');
@@ -199,11 +203,18 @@
 					prop = 'height';
 				}
 
-				self.$container.css(prop, (self.total * 100) + '%').addClass(self.prefix + 'carousel');
+				self.$container.css(prop, (self.total * self.scale) + '%').addClass(self.prefix + 'carousel');
 				self.$slides.css(prop, (100 / self.total) + '%');
 			}
 		};
 
+
+		// Update the carousel with optoins
+		self.updateSlidesInViewport = function(slidesInViewport) {
+			self.options.slidesInViewport = slidesInViewport;
+			self.scale = 100 / self.options.slidesInViewport;
+			self.calculateSlides();
+		};
 
 		//  Start our autoplay
 		self.start = function() {
@@ -322,7 +333,7 @@
 					},
 
 					move: function(e) {
-						self.$container.css('left', -(100 * self.current) + (100 * e.distX / width) + '%');
+						self.$container.css('left', -(self.scale * self.current) + (100 * e.distX / width) + '%');
 					},
 
 					moveend: function(e) {
@@ -336,7 +347,7 @@
 						}
 						else {
 
-							self.$container.animate({left: -(100 * self.current) + '%' }, self.options.speed / 2 );
+							self.$container.animate({left: -(self.scale * self.current) + '%' }, self.options.speed / 2 );
 						}
 					}
 				});
@@ -394,6 +405,7 @@
 		};
 
 		self.setIndex = function(to) {
+			to = to * self.options.slidesInViewport;
 			if(to < 0) {
 				to = self.total - 1;
 			}
@@ -556,7 +568,7 @@
 			var obj = {};
 
 			//  Manually create it here
-			obj[prop] = -(100 * to) + '%';
+			obj[prop] = -(100 * (to / self.options.slidesInViewport)) + '%';
 
 			//  And animate using our newly-created object
 			return self._move(self.$container, obj);
